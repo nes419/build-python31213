@@ -52,18 +52,20 @@ jobs:
         xcopy Python-$version\PCbuild\amd64\tk86t.dll $output\ /Y
 
     - name: 创建 _pth 配置文件
+      shell: pwsh
       run: |
         $version = "${{ github.event.inputs.python_version }}"
         $short_version = "${{ github.event.inputs.python_short_version }}"
         $output = "Python-$version-Full"
         $pth_file = "$output\python$short_version._pth"
-        @"
-.
-DLLs
-Lib
-Lib\site-packages
-import site
-"@ | Out-File -Encoding ASCII $pth_file
+        $lines = @(
+          ".",
+          "DLLs",
+          "Lib",
+          "Lib\site-packages",
+          "import site"
+        )
+        [System.IO.File]::WriteAllLines($pth_file, $lines, [System.Text.Encoding]::ASCII)
 
     - name: 安装和修复 pip
       run: |
