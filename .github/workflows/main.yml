@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       python_version:
-        description: 'Python版本号 (例: 3.12.13)'
+        description: 'Python版本号'
         required: true
         default: '3.12.13'
       python_short_version:
-        description: 'Python短版本号 (例: 312)'
+        description: '短版本号'
         required: true
         default: '312'
 
@@ -17,79 +17,56 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: 下载源代码
+    - name: Download Source
       run: |
-        $version = "${{ github.event.inputs.python_version }}"
-        $url = "https://www.python.org/ftp/python/$version/Python-$version.tgz"
-        Write-Host "下载: $url"
-        curl -O $url
-        tar -xzf Python-$version.tgz
+        curl -O https://www.python.org/ftp/python/${{ github.event.inputs.python_version }}/Python-${{ github.event.inputs.python_version }}.tgz
+        tar -xzf Python-${{ github.event.inputs.python_version }}.tgz
 
-    - name: 获取外部依赖
+    - name: Get Externals
       run: |
-        $version = "${{ github.event.inputs.python_version }}"
-        cd Python-$version/PCbuild
+        cd Python-${{ github.event.inputs.python_version }}/PCbuild
         ./get_externals.bat
 
-    - name: 编译
+    - name: Build
       run: |
-        $version = "${{ github.event.inputs.python_version }}"
-        cd Python-$version/PCbuild
+        cd Python-${{ github.event.inputs.python_version }}/PCbuild
         ./build.bat -c Release -p x64
 
-    - name: 收集文件
+    - name: Collect Files
       run: |
-        $version = "${{ github.event.inputs.python_version }}"
-        $output = "Python-$version-Full"
-        mkdir $output
-        mkdir $output\DLLs
-        copy Python-$version\PCbuild\amd64\*.exe $output\
-        copy Python-$version\PCbuild\amd64\*.dll $output\
-        copy Python-$version\PCbuild\amd64\*.pyd $output\DLLs\
-        copy Python-$version\PCbuild\amd64\LICENSE.txt $output\
-        xcopy Python-$version\Lib $output\Lib\ /E /I /Q
-        xcopy Python-$version\PCbuild\amd64\tcl86t.dll $output\ /Y
-        xcopy Python-$version\PCbuild\amd64\tk86t.dll $output\ /Y
+        mkdir Python-${{ github.event.inputs.python_version }}-Full
+        mkdir Python-${{ github.event.inputs.python_version }}-Full\DLLs
 
-    - name: 创建 _pth 配置文件
-      shell: pwsh
+        copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\*.exe Python-${{ github.event.inputs.python_version }}-Full\
+        copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\*.dll Python-${{ github.event.inputs.python_version }}-Full\
+        copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\*.pyd Python-${{ github.event.inputs.python_version }}-Full\DLLs\
+        copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\LICENSE.txt Python-${{ github.event.inputs.python_version }}-Full\
+
+        xcopy Python-${{ github.event.inputs.python_version }}\Lib Python-${{ github.event.inputs.python_version }}-Full\Lib\ /E /I /Q
+
+        xcopy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\tcl86t.dll Python-${{ github.event.inputs.python_version }}-Full\ /Y
+        xcopy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\tk86t.dll Python-${{ github.event.inputs.python_version }}-Full\ /Y
+
+    - name: Create _pth File
       run: |
-        $version = "${{ github.event.inputs.python_version }}"
-        $short_version = "${{ github.event.inputs.python_short_version }}"
-        $output = "Python-$version-Full"
-        $pth_file = "$output\python$short_version._pth"
-        $lines = @(
-          ".",
-          "DLLs",
-          "Lib",
-          "Lib\site-packages",
-          "import site"
-        )
-        [System.IO.File]::WriteAllLines($pth_file, $lines, [System.Text.Encoding]::ASCII)
+        echo .> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
+        echo DLLs>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
+        echo Lib>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
+        echo Lib\site-packages>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
+        echo import site>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
 
-    - name: 安装和修复 pip
+    - name: Install Pip
       run: |
-        $version = "${{ github.event.inputs.python_version }}"
-        $output = "Python-$version-Full"
-        $python = "$output\python.exe"
-        Write-Host "初始化 pip..."
-        & $python -m ensurepip
-        Write-Host "升级 pip..."
-        & $python -m pip install --upgrade pip
-        Write-Host "重新生成 pip.exe..."
-        & $python -m pip install --force-reinstall pip
-        Write-Host "验证 pip..."
-        & $output\Scripts\pip.exe --version
+        Python-${{ github.event.inputs.python_version }}-Full\python.exe -m ensurepip
+        Python-${{ github.event.inputs.python_version }}-Full\python.exe -m pip install --upgrade pip
+        Python-${{ github.event.inputs.python_version }}-Full\python.exe -m pip install --force-reinstall pip
 
-    - name: 验证编译结果
+    - name: Verify
       run: |
-        $version = "${{ github.event.inputs.python_version }}"
-        $output = "Python-$version-Full"
-        $python = "$output\python.exe"
-        & $python --version
-        & $python -c "import ssl, sqlite3, socket; print('OK')"
+        Python-${{ github.event.inputs.python_version }}-Full\python.exe --version
+        Python-${{ github.event.inputs.python_version }}-Full\python.exe -c "import ssl, sqlite3, socket; print('OK')"
 
-    - name: 上传编译结果
+    - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: Python-${{ github.event.inputs.python_version }}-Full
