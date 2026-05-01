@@ -1,0 +1,95 @@
+name: Build Python for Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: 'Python版本号 (例: 3.12.13)'
+        required: true
+        default: '3.12.13'
+      python_short_version:
+        description: 'Python短版本号 (例: 312)'
+        required: true
+        default: '312'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: 下载源代码
+      run: |
+        $version = "${{ github.event.inputs.python_version }}"
+        $url = "https://www.python.org/ftp/python/$version/Python-$version.tgz"
+        Write-Host "下载: $url"
+        curl -O $url
+        tar -xzf Python-$version.tgz
+
+    - name: 获取外部依赖
+      run: |
+        $version = "${{ github.event.inputs.python_version }}"
+        cd Python-$version/PCbuild
+        ./get_externals.bat
+
+    - name: 编译
+      run: |
+        $version = "${{ github.event.inputs.python_version }}"
+        cd Python-$version/PCbuild
+        ./build.bat -c Release -p x64
+
+    - name: 收集文件
+      run: |
+        $version = "${{ github.event.inputs.python_version }}"
+        $output = "Python-$version-Full"
+        mkdir $output
+        mkdir $output\DLLs
+        copy Python-$version\PCbuild\amd64\*.exe $output\
+        copy Python-$version\PCbuild\amd64\*.dll $output\
+        copy Python-$version\PCbuild\amd64\*.pyd $output\DLLs\
+        copy Python-$version\PCbuild\amd64\LICENSE.txt $output\
+        xcopy Python-$version\Lib $output\Lib\ /E /I /Q
+        xcopy Python-$version\PCbuild\amd64\tcl86t.dll $output\ /Y
+        xcopy Python-$version\PCbuild\amd64\tk86t.dll $output\ /Y
+
+    - name: 创建 _pth 配置文件
+      run: |
+        $version = "${{ github.event.inputs.python_version }}"
+        $short_version = "${{ github.event.inputs.python_short_version }}"
+        $output = "Python-$version-Full"
+        $pth_file = "$output\python$short_version._pth"
+        @"
+.
+DLLs
+Lib
+Lib\site-packages
+import site
+"@ | Out-File -Encoding ASCII $pth_file
+
+    - name: 安装和修复 pip
+      run: |
+        $version = "${{ github.event.inputs.python_version }}"
+        $output = "Python-$version-Full"
+        $python = "$output\python.exe"
+        Write-Host "初始化 pip..."
+        & $python -m ensurepip
+        Write-Host "升级 pip..."
+        & $python -m pip install --upgrade pip
+        Write-Host "重新生成 pip.exe..."
+        & $python -m pip install --force-reinstall pip
+        Write-Host "验证 pip..."
+        & $output\Scripts\pip.exe --version
+
+    - name: 验证编译结果
+      run: |
+        $version = "${{ github.event.inputs.python_version }}"
+        $output = "Python-$version-Full"
+        $python = "$output\python.exe"
+        & $python --version
+        & $python -c "import ssl, sqlite3, socket; print('OK')"
+
+    - name: 上传编译结果
+      uses: actions/upload-artifact@v4
+      with:
+        name: Python-${{ github.event.inputs.python_version }}-Full
+        path: Python-${{ github.event.inputs.python_version }}-Full/
+        retention-days: 30
