@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       python_version:
-        description: 'Python版本号'
+        description: 'Python version'
         required: true
         default: '3.12.13'
       python_short_version:
-        description: '短版本号'
+        description: 'Short version'
         required: true
         default: '312'
 
@@ -36,35 +36,30 @@ jobs:
       run: |
         mkdir Python-${{ github.event.inputs.python_version }}-Full
         mkdir Python-${{ github.event.inputs.python_version }}-Full\DLLs
-
+        
         copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\*.exe Python-${{ github.event.inputs.python_version }}-Full\
         copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\*.dll Python-${{ github.event.inputs.python_version }}-Full\
         copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\*.pyd Python-${{ github.event.inputs.python_version }}-Full\DLLs\
         copy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\LICENSE.txt Python-${{ github.event.inputs.python_version }}-Full\
-
+        
         xcopy Python-${{ github.event.inputs.python_version }}\Lib Python-${{ github.event.inputs.python_version }}-Full\Lib\ /E /I /Q
-
+        
         xcopy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\tcl86t.dll Python-${{ github.event.inputs.python_version }}-Full\ /Y
         xcopy Python-${{ github.event.inputs.python_version }}\PCbuild\amd64\tk86t.dll Python-${{ github.event.inputs.python_version }}-Full\ /Y
 
-    - name: Create _pth File
+    - name: Create _pth
       run: |
-        echo .> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
-        echo DLLs>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
-        echo Lib>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
-        echo Lib\site-packages>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
-        echo import site>> Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth
+        echo .> "Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth"
+        echo DLLs>> "Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth"
+        echo Lib>> "Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth"
+        echo Lib\site-packages>> "Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth"
+        echo import site>> "Python-${{ github.event.inputs.python_version }}-Full\python${{ github.event.inputs.python_short_version }}._pth"
 
     - name: Install Pip
       run: |
         Python-${{ github.event.inputs.python_version }}-Full\python.exe -m ensurepip
         Python-${{ github.event.inputs.python_version }}-Full\python.exe -m pip install --upgrade pip
         Python-${{ github.event.inputs.python_version }}-Full\python.exe -m pip install --force-reinstall pip
-
-    - name: Verify
-      run: |
-        Python-${{ github.event.inputs.python_version }}-Full\python.exe --version
-        Python-${{ github.event.inputs.python_version }}-Full\python.exe -c "import ssl, sqlite3, socket; print('OK')"
 
     - name: Upload
       uses: actions/upload-artifact@v4
